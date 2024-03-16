@@ -1,5 +1,5 @@
 //
-// Created by hsf on 3/16/24.
+// Created by Ayman Rebai on 3/16/24.
 //
 
 #include "Motor.h"
@@ -20,18 +20,13 @@ void Motor::incrementEncoderTicksRight() {
 void Motor::update() {
     unsigned long currentTime = millis();
     unsigned long elapsedTime = currentTime - lastUpdateTime;
-
     if (elapsedTime >= sampleTimeMs) {
         noInterrupts();
         long ticks = Motor::rightEncoderTicks;
         Motor::rightEncoderTicks = 0; // Reset tick count for the next period
         interrupts();
-
         float rpm = ((float)ticks / (float)pulsesPerRevolution) * (60000.0 / (float)elapsedTime);
         currentRPM = rpmFilter.update(rpm); // Apply Kalman filter
-
         lastUpdateTime = currentTime;
     }
 }
-
-
