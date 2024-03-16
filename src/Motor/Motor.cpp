@@ -5,7 +5,7 @@
 #include "Motor.h"
 #include <Arduino.h>
 
-static Kalman rpmFilter(20, 10, 3, 0);
+static Kalman rpmFilter(25, 10, 3, 0);
 Motor* Motor::instance = nullptr;
 volatile long Motor::rightEncoderTicks = 0;
 

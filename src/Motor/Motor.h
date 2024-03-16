@@ -19,7 +19,7 @@ private:
     unsigned long lastUpdateTime;
     int encoderPinA;
     int pulsesPerRevolution;
-    static const unsigned long sampleTimeMs = 100; // Sample time in milliseconds
+    static const unsigned long sampleTimeMs = 50; // Sample time in milliseconds
     static Motor* instance;
 };
 
