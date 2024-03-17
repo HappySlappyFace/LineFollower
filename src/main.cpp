@@ -10,79 +10,75 @@ void updateMotorTask(void *pvParameters) {
     const TickType_t xFrequency = pdMS_TO_TICKS(1);
     for (;;) {
         rightMotor->update();
-        rightMotor->Compute();
-//        leftMotor->update();
-//        leftMotor->Compute();
+        leftMotor->update();
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
-//        vTaskDelay(pdMS_TO_TICKS(1)); // Run every 1ms
     }
 }
-int i=0;
-int sense=0;
-int timeNow=millis();
-void readRpmTask(void *pvParameters) {
-    for (;;) {
 
-        vTaskDelay(pdMS_TO_TICKS(2)); // Run every 1ms
-    }
-}
-void serialPrintTask(void *pvParameters) {
-    for (;;) {
-        Serial.println(rightMotor->currentRPM);
-        vTaskDelay(pdMS_TO_TICKS(50)); // Print every 1000ms (1 second)
-    }
-}
-void updateLedTask(void *pvParameters) {
-    for (;;) {
-        digitalWrite(2, rightMotor->currentRPM<20?HIGH:LOW);
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
 void partie1Task(void *pvParameters) {
     for(;;){
-//        if(sense==0){
-//            i++;
-//            if(i>=600){sense=1;}
-//        }
-//        else{
-//            i--;
-//            if(i<=-600){sense=0;}
-//        }
-        i++;
-        float res=((float)i/1000);
-        rightMotor->SetPid(6,res,0);
-        Serial.println((String)res+" "+ (String)rightMotor->calculateDistanceTraveled());
-        rightMotor->setTargetRPM(50);
-//        leftMotor->update();
-//        leftMotor->Compute();
-        vTaskDelay(pdMS_TO_TICKS(25)); // Run every 1ms
+        rightMotor->SetPid(0.5,4,0);
+        leftMotor->SetPid(0.5,4,0);
+        int distanceToTravel=rightMotor->distanceInCmToTicks(25);
+        rightMotor->setTargetPosition(distanceToTravel);
+        leftMotor->setTargetPosition(distanceToTravel);
+        vTaskDelay(pdMS_TO_TICKS(10)); // Run every 1ms
     }
-    rightMotor->setTargetRPM(0);
+//    rightMotor->setTargetRPM(0);
     vTaskDelete(partie1);
 }
+void readEncodersTask(void *pvParameters) {
+    for(;;){
+        Serial.print((String)rightMotor->getTotalEncoderTicks()+"\t"+ (String)rightMotor->calculateDistanceTraveled()+"\t");
+//        Serial.println((String)leftMotor->getTotalEncoderTicks()+"\t"+ (String)leftMotor->calculateDistanceTraveled());
+        vTaskDelay(pdMS_TO_TICKS(10)); // Run every 1ms
+    }
+}
+
+void debugTask(void *pvParameters) {
+    for(;;) {
+        if (rightMotor->debugFlag) {
+            rightMotor->debugFlag = false; // Reset flag
+            Serial.print("A: ");
+            Serial.print(rightMotor->debugEncoderTicks);
+            Serial.print("\tB: ");
+            Serial.print(rightMotor->debugTotalEncoderTicks);
+            Serial.println();
+        }
+        if (leftMotor->debugFlag) {
+            leftMotor->debugFlag = false; // Reset flag
+            Serial.print("A: ");
+            Serial.print(leftMotor->debugEncoderTicks);
+            Serial.print("\tB: ");
+            Serial.print(leftMotor->debugTotalEncoderTicks);
+            Serial.println();
+        }
+        vTaskDelay(pdMS_TO_TICKS(100)); // Run this task at a safe, low frequency
+    }
+}
+
 void setup() {
     rightMotor = new Motor (22,23, 204,33,32); // Example: encoderPinA = 22, PulsesPerRevolution = 110
-//    leftMotor = new Motor (22,23, 110,26,25); // Example: encoderPinA = 22, PulsesPerRevolution = 110
+    leftMotor = new Motor (18,19, 204,25,26); // Example: encoderPinA = 22, PulsesPerRevolution = 110
     Serial.begin(9600);
     pinMode(22,INPUT);
     pinMode(23,INPUT);
-    pinMode(2,OUTPUT);
+    pinMode(18,INPUT);
+    pinMode(19,INPUT);
     pinMode(33,OUTPUT);
     pinMode(32,OUTPUT);
     pinMode(26,OUTPUT);
     pinMode(25,OUTPUT);
 
-    digitalWrite(2,HIGH);
-    attachInterrupt(digitalPinToInterrupt(22), [](){ rightMotor->incrementEncoderTicks(); }, CHANGE);
-    //attachInterrupt(digitalPinToInterrupt(34), [](){ leftMotor->incrementEncoderTicks(); }, CHANGE);
+    pinMode(2,OUTPUT);
+    pinMode(0,OUTPUT);
 
-    rightMotor->SetPid(2,2,0);
-//    rightMotor->setTargetRPM(40);
-//    leftMotor->SetPid(0.375,0.25,0.00001);
+    attachInterrupt(digitalPinToInterrupt(22), [](){ Motor::instances[0]->incrementEncoderTicks(); }, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(18), [](){ Motor::instances[1]->incrementEncoderTicks(); }, CHANGE);
 
     xTaskCreate(updateMotorTask, "Update Motor", 4096, NULL, 3, NULL);
     xTaskCreate(partie1Task, "Partie1", 2048, NULL, 1, &partie1);
-
+//    xTaskCreate(debugTask, "ReadEncoders", 2048, NULL, 1, NULL);
 }
 
 void loop() {
