@@ -5,33 +5,44 @@
 #ifndef UNTITLED_MOTOR_H
 #define UNTITLED_MOTOR_H
 #include "../KalmanFilter/Kalman.h"
-#include <PID_v1.h>
-
+//#include <PID_v1.h>
+#include "../QuickPID/QuickPID.h"
 class Motor {
 public:
-    Motor(int pinA, int pulsesPerRev, int pinForward, int pinBackward);
+    Motor(int pinA, int pinB, int pulsesPerRev, int pinForward, int pinBackward);
     void update();
-    void static incrementEncoderTicksRight();
-    double currentRPM = -1; // Public RPM variable
-    void setTargetRPM(double targetRpm);
+    void incrementEncoderTicks();
+
+    float currentRPM = -1; // Public RPM variable
+    void setTargetRPM(float targetRpm);
     void startPID();
-    double getCurrentRPM() const { return currentRPM; }
+    void Compute();
+
+    void SetPid(float Kp, float Ki, float Kd);
 
 private:
-    static volatile long rightEncoderTicks;
-    unsigned long lastUpdateTime;
-    int encoderPinA;
+    int encoderPinA, encoderPinB;
+    int pulsesPerRevolution=204;
+    static volatile long encoderTicks;
+    static volatile bool lastEncoderAState;
+    static volatile bool lastEncoderBState;
+    static bool direction;
+
     int pinForward;
     int pinBackward;
-    int pulsesPerRevolution;
+
+    void readEncoder();
     static const unsigned long sampleTimeMs = 50; // Sample time in milliseconds
     static Motor* instance;
 
     // PID Control variables
-    double targetRPM; // Target RPM set by the user
-    double outputSignal; // Output signal to control the motor (e.g., PWM value)
-    PID rpmPID; // PID controller object
+    float targetRPM{}; // Target RPM set by the user
+    float outputSignal{}; // Output signal to control the motor (e.g., PWM value)
+    QuickPID rpmPID; // PID controller object
 
+
+
+    unsigned long lastUpdateTime;
 };
 
 #endif //UNTITLED_MOTOR_H
