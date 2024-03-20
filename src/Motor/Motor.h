@@ -9,17 +9,17 @@
 #include "../QuickPID/QuickPID.h"
 class Motor {
 public:
-    Motor(int pinA, int pinB, int pulsesPerRev, int pinForward, int pinBackward);
+    Motor(int pinA, int pinB, int pinForward, int pinBackward);
     void update();
     void incrementEncoderTicks();
     float currentRPM = -1; // Public RPM variable
     void startPID();
-    void Compute();
     void SetPid(float Kp, float Ki, float Kd);
     float calculateDistanceTraveled() const;
     void setTargetPosition(long positionTicks);
     long getTotalEncoderTicks() const;
     int distanceInCmToTicks(float distanceInCm) const;
+    void followLine(int lineError);
     static void printInstances();
     static const int MAX_MOTORS = 2;
     static Motor* instances[MAX_MOTORS];
@@ -29,7 +29,7 @@ public:
     volatile long debugTotalEncoderTicks = 0;
 
     float pidInput;  // This will be your positionError
-    float pidOutput; // This will be the control output from PID to your motor
+    float pidOutput=0; // This will be the control output from PID to your motor
     float pidSetpoint; // This is your target position
     bool debugCurrentA;
     bool debugCurrentB;

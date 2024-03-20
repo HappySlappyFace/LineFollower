@@ -9,7 +9,7 @@ static Kalman rpmFilter(25, 10, 3, 0);
 Motor* Motor::instances[MAX_MOTORS] = {nullptr}; // Initialize all elements to nullptr
 
 
-Motor::Motor(int pinA, int pinB, int pulsesPerRev,int pinForward, int pinBackward):
+Motor::Motor(int pinA, int pinB,int pinForward, int pinBackward):
         pinForward(pinForward), pinBackward(pinBackward),
         rpmPID(&pidInput, &pidOutput, &pidSetpoint, Kp, Ki, Kd, QuickPID::Action::direct)
 {
@@ -50,12 +50,12 @@ void Motor::printInstances() {
 void Motor::incrementEncoderTicks() {
     readEncoder();
 
-    if(this==instances[0]){
-        digitalWrite(2, !digitalRead(2));
-    }
-    if(this==instances[1]){
-        digitalWrite(0, !digitalRead(0));
-    }
+//    if(this==instances[0]){
+//        digitalWrite(2, !digitalRead(2));
+//    }
+//    if(this==instances[1]){
+//        digitalWrite(0, !digitalRead(0));
+//    }
 }
 void Motor::readEncoder() {
 
@@ -95,8 +95,6 @@ void Motor::update() {
         // Update PID input with the current position error
         pidInput = targetPosition - currentTicks; // positionError
 
-        // Optionally, ensure pidSetpoint is updated if your target position changes dynamically
-
         rpmPID.Compute();
         // Apply the control output to the motor
         applyControlOutput(pidOutput);
@@ -104,16 +102,27 @@ void Motor::update() {
         lastUpdateTime = currentTime;
     }
 }
+
+void Motor::followLine(int lineError) {
+    // Update PID input with the error from IR sensors
+    pidInput = lineError;
+
+    // Assuming the PID setpoint is already set to 0 during initialization
+    rpmPID.Compute();
+
+    // Apply the control output to correct the line following error
+    applyControlOutput(pidOutput);
+}
 void Motor::applyControlOutput(float pidOut) const {
     // Assuming pidOut ranges from -255 to 255
     // Forward direction
-    if (pidOut > 10) {
+    if (pidOut > 1) {
         analogWrite(pinForward, static_cast<int>(pidOut));
         digitalWrite(pinBackward, LOW);
     }
         // Backward direction
-    else if (pidOut < 10) {
-        analogWrite(pinBackward, static_cast<int>(-pidOut)); // Make pidOut positive
+    else if (pidOut < -1) {
+        analogWrite(pinBackward, -static_cast<int>(pidOut)); // Make pidOut positive
         digitalWrite(pinForward, LOW);
     }
         // Stop the motor if pidOut is 0
@@ -139,19 +148,7 @@ void Motor::setTargetPosition(long positionTicks) {
     targetPosition = positionTicks;
 }
 
-void Motor::Compute(){
-    // Compute PID output
-    positionError = targetPosition - totalEncoderTicks; // Update error each cycle
-    rpmPID.Compute();
-    if (outputSignal > 0) {
-        analogWrite(pinForward, outputSignal);
-        digitalWrite(pinBackward, LOW);
-    } else {
-        analogWrite(pinBackward, -outputSignal); // Assuming outputSignal can be negative
-        digitalWrite(pinForward, LOW);
-    }
-//    Serial.println((String)currentRPM+" "+(String)outputSignal);
-}
+
 
 void Motor::startPID() {
     rpmPID.SetMode(QuickPID::Control::automatic);
