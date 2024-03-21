@@ -114,8 +114,8 @@ void setup() {
         digitalWrite(pin,LOW);
         pinMode(pin,INPUT);
     }
-    rightMotor->SetPid(1.1,3,0); //set k to 0.9
-    leftMotor->SetPid(1.1,3,0);
+    rightMotor->SetPid(0.65,3.5,0); //set k to 0.9
+    leftMotor->SetPid(0.65,3.5,0);
 
 
     attachInterrupt(digitalPinToInterrupt(22), [](){ Motor::instances[0]->incrementEncoderTicks(); }, CHANGE);
