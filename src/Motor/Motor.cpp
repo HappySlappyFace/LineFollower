@@ -93,8 +93,8 @@ void Motor::update() {
         interrupts();
 
         // Update PID input with the current position error
-        pidInput = targetPosition - currentTicks; // positionError
-
+        pidInput = (targetPosition - currentTicks); // positionError
+        Serial.println(pidInput);
         rpmPID.Compute();
         // Apply the control output to the motor
         applyControlOutput(pidOutput);
@@ -107,11 +107,27 @@ void Motor::followLine(int lineError) {
     // Update PID input with the error from IR sensors
     pidInput = lineError;
 
-    // Assuming the PID setpoint is already set to 0 during initialization
-    rpmPID.Compute();
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = currentTime - lastUpdateTime;
+    if (elapsedTime >= 50) { //50 is the sample time
+        noInterrupts();
+        long currentTicks = totalEncoderTicks;
+        interrupts();
+
+        // Update PID input with the current position error
+        pidInput = (targetPosition - currentTicks)*positionError; // positionError
+        Serial.println(pidInput);
+        rpmPID.Compute();
+        pidOutput*=0.3;
+        // Apply the control output to the motor
+        applyControlOutput(pidOutput);
+
+        lastUpdateTime = currentTime;
+    }
+
 
     // Apply the control output to correct the line following error
-    applyControlOutput(pidOutput);
+//    applyControlOutput(pidOutput);
 }
 void Motor::applyControlOutput(float pidOut) const {
     // Assuming pidOut ranges from -255 to 255
