@@ -8,9 +8,9 @@ Motor* leftMotor;
 
 //int sensorWeights[] = {-4, -3, -2, -1, 0, 1, 2, 3, 4};
 int sensorWeights[] = {  -2, 0, 2 };
-//int pins[]={12,14,27,26,25,33,32,35,34};
-int pins[]={26,25,32};//temporary middle pins until i fix the the IR sensors
-IRSensorArray irSensorArray(pins, sensorWeights, sizeof(pins) / sizeof(pins[0]));
+int pins[]={12,14,27,26,25,33,32,35,34};
+//int pins[]={26,25,32};//temporary middle pins until i fix the the IR sensors
+//IRSensorArray irSensorArray(pins, sensorWeights, sizeof(pins) / sizeof(pins[0]));
 
 
 #define leftMotorBack 19
@@ -23,7 +23,7 @@ void updateMotorTask(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(1);
     for (;;) {
-        float lineError = irSensorArray.calculateError();
+//        float lineError = irSensorArray.calculateError();
         rightMotor->update();
         leftMotor->update();
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -45,7 +45,7 @@ void partie1Task(void *pvParameters) {
 void lineFollowerTask(void *pvParameters) {
     for(;;){
 //        int distanceToTravel=rightMotor->distanceInCmToTicks(25);
-        float lineError = irSensorArray.calculateError();
+//        float lineError = irSensorArray.calculateError();
         leftMotor->setTargetPosition(-300);
         rightMotor->setTargetPosition(-300);
         vTaskDelay(pdMS_TO_TICKS(1)); // Run every 1ms
@@ -79,6 +79,7 @@ void debugTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(100)); // Run this task at a safe, low frequency
     }
 }
+
 void startupTask(void *pvParameters){
     vTaskDelay(pdMS_TO_TICKS(200));
 }
@@ -92,10 +93,11 @@ void readIRTask(void *pvParameters){
         vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
+
 void setup() {
 //    xTaskCreate(startupTask, "Delay everything for 200ms", 2048, NULL, 10, NULL);
-
     Serial.begin(9600);
+
     pinMode(22,INPUT);
     pinMode(23,INPUT);
     pinMode(16,INPUT);
@@ -111,7 +113,7 @@ void setup() {
     rightMotor = new Motor (23,22,rightMotorFront,rightMotorBack);
     leftMotor = new Motor (17,16,leftMotorFront,leftMotorBack);
     for(int pin : pins){
-        digitalWrite(pin,LOW);
+//        digitalWrite(pin,LOW);
         pinMode(pin,INPUT);
     }
     rightMotor->SetPid(0.65,3.5,0); //set k to 0.9
@@ -120,9 +122,9 @@ void setup() {
 
     attachInterrupt(digitalPinToInterrupt(22), [](){ Motor::instances[0]->incrementEncoderTicks(); }, CHANGE);
     attachInterrupt(digitalPinToInterrupt(17), [](){ Motor::instances[1]->incrementEncoderTicks(); }, CHANGE);
-    xTaskCreate(updateMotorTask, "Update Motor", 4096, NULL, 3, NULL);
-    xTaskCreate(lineFollowerTask, "Partie1", 2048, NULL, 1, &partie1);
-//    xTaskCreate(readIRTask, "ReadEncoders", 2048, NULL, 1, NULL);
+//    xTaskCreate(updateMotorTask, "Update Motor", 4096, NULL, 3, NULL);
+//    xTaskCreate(lineFollowerTask, "Partie1", 2048, NULL, 1, &partie1);
+    xTaskCreate(readIRTask, "ReadEncoders", 2048, NULL, 1, NULL);
 }
 
 void loop() {
