@@ -33,7 +33,8 @@ public:
     float pidSetpoint; // This is your target position
 //    bool debugCurrentA;
 //    bool debugCurrentB;
-    void setTargetRPM(float targetRPM);
+    void setTargetRPM(float target);
+    void calculateRPM();
 
 private:
     int encoderPinA, encoderPinB, pinForward, pinBackward;
@@ -66,9 +67,11 @@ private:
 
     float calculateLineAdjustment(float lineError);
 
-    void calculateRPM();
+
 
     long encoderTicks;
+    float speedError;
+    Kalman rpmFilter;
 };
 
 #endif //UNTITLED_MOTOR_H
