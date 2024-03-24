@@ -11,7 +11,7 @@ Motor* Motor::instances[MAX_MOTORS] = {nullptr}; // Initialize all elements to n
 
 Motor::Motor(int pinA, int pinB,int pinForward, int pinBackward):
         pinForward(pinForward), pinBackward(pinBackward),
-        rpmPID(&pidInput, &pidOutput, &pidSetpoint, Kp, Ki, Kd, QuickPID::Action::direct)
+        rpmPID(&currentRPM, &targetRPM, &pidOutput, Kp, Ki, Kd, QuickPID::Action::direct)
 {
     encoderPinA = pinA;
     encoderPinB = pinB;
@@ -61,11 +61,6 @@ void Motor::readEncoder() {
 
     bool currentA = digitalRead(encoderPinA);
     bool currentB = digitalRead(encoderPinB);
-    debugTotalEncoderTicks = totalEncoderTicks;
-    debugFlag = true;
-    debugCurrentA=currentA;
-    debugCurrentB=currentB;
-//    Serial.println((String)currentA+"\t"+(String)currentB+"\t"+(String)totalEncoderTicks+"\t");
     if (lastEncoderAState != currentA) { // If A changed
         if (currentA == currentB) {
             totalEncoderTicks++;
@@ -85,60 +80,64 @@ void Motor::readEncoder() {
 }
 
 void Motor::update() {
-    unsigned long currentTime = millis();
-    unsigned long elapsedTime = currentTime - lastUpdateTime;
-    if (elapsedTime >= 50) { //50 is the sample time
         noInterrupts();
         long currentTicks = totalEncoderTicks;
         interrupts();
 
         // Update PID input with the current position error
         pidInput = (targetPosition - currentTicks); // positionError
-        Serial.println(pidInput);
+//        Serial.println(pidInput);
+        calculateRPM();
         rpmPID.Compute();
         // Apply the control output to the motor
         applyControlOutput(pidOutput);
-
-        lastUpdateTime = currentTime;
-    }
 }
-
-void Motor::followLine(int lineError) {
-    // Update PID input with the error from IR sensors
-    pidInput = lineError;
-
+void Motor::calculateRPM() {
+    static unsigned long lastUpdateTime = 0;
     unsigned long currentTime = millis();
     unsigned long elapsedTime = currentTime - lastUpdateTime;
-    if (elapsedTime >= 50) { //50 is the sample time
+
+    if (elapsedTime >= 10) { // Calculate RPM every second
         noInterrupts();
-        long currentTicks = totalEncoderTicks;
+        long ticks = encoderTicks;
+        encoderTicks = totalEncoderTicks; // Reset tick count for the next measurement period
         interrupts();
 
-        // Update PID input with the current position error
-        pidInput = (targetPosition - currentTicks)*positionError; // positionError
-        Serial.println(pidInput);
-        rpmPID.Compute();
-        pidOutput*=0.3;
-        // Apply the control output to the motor
-        applyControlOutput(pidOutput);
-
+        currentRPM = (ticks / (float)pulsesPerRevolution) * 60.0 / (elapsedTime / 1000.0);
         lastUpdateTime = currentTime;
     }
-
-
-    // Apply the control output to correct the line following error
-//    applyControlOutput(pidOutput);
 }
+void Motor::followLine(float lineError, float baseSpeed) {
+//    pidInput = lineError;
+//    setTargetPosition()
+
+    // Then, use the encoder feedback to adjust towards this new target speed
+    noInterrupts();
+    long currentTicks = totalEncoderTicks;
+    interrupts();
+
+    float speedError = baseSpeed - (float)currentTicks;
+    float lineAdjustment = calculateLineAdjustment(lineError); // Define this function based on lineError
+
+    pidInput = speedError + lineAdjustment;
+
+    rpmPID.Compute(); // Adjust the PID controller to regulate speed instead of position
+    Serial.println((String)lineAdjustment+"\t"+(String)targetSpeed+"\t"+(String)pidOutput);
+
+    // Apply the control output to adjust motor speed
+    applyControlOutput(pidOutput);
+}
+
 void Motor::applyControlOutput(float pidOut) const {
     // Assuming pidOut ranges from -255 to 255
     // Forward direction
     if (pidOut > 1) {
-        analogWrite(pinForward, static_cast<int>(pidOut));
+        analogWrite(pinForward, (int)pidOut);
         digitalWrite(pinBackward, LOW);
     }
         // Backward direction
     else if (pidOut < -1) {
-        analogWrite(pinBackward, -static_cast<int>(pidOut)); // Make pidOut positive
+        analogWrite(pinBackward, -(int)(pidOut)); // Make pidOut positive
         digitalWrite(pinForward, LOW);
     }
         // Stop the motor if pidOut is 0
@@ -160,7 +159,7 @@ int Motor::distanceInCmToTicks(float distanceInCm) const{
 void Motor::SetPid(float Kp, float Ki, float Kd){
     rpmPID.SetTunings(Kp,Ki,Kd);
 }
-void Motor::setTargetPosition(long positionTicks) {
+void Motor::setTargetPosition(float positionTicks) {
     targetPosition = positionTicks;
 }
 
@@ -168,7 +167,7 @@ void Motor::setTargetPosition(long positionTicks) {
 
 void Motor::startPID() {
     rpmPID.SetMode(QuickPID::Control::automatic);
-    rpmPID.SetSampleTimeUs(5000);
+    rpmPID.SetSampleTimeUs(50000);
     rpmPID.SetOutputLimits(-255, 255); // Allow reverse control
     rpmPID.SetControllerDirection(QuickPID::Action::direct);
     rpmPID.Initialize();
@@ -176,4 +175,22 @@ void Motor::startPID() {
 
 long Motor::getTotalEncoderTicks() const {
     return totalEncoderTicks;
+}
+
+float Motor::calculateLineAdjustment(float lineError) {
+    const float errorToSpeedScale = 1.0f;
+
+    // Calculate the speed adjustment
+    // The scaling factor determines the sensitivity of the adjustment to the line error
+    float speedAdjustment = lineError * errorToSpeedScale;
+
+    // Optionally, limit the speed adjustment to a maximum value to prevent too drastic changes
+    float maxSpeedAdjustment = 50; // Example value; adjust based on your robot's capabilities
+    speedAdjustment = constrain(speedAdjustment, -maxSpeedAdjustment, maxSpeedAdjustment);
+
+    return speedAdjustment;
+}
+
+void Motor::setTargetRPM(float targetRPM) {
+    this->targetRPM=targetRPM;
 }
