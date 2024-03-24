@@ -11,7 +11,7 @@ Motor* Motor::instances[MAX_MOTORS] = {nullptr}; // Initialize all elements to n
 
 Motor::Motor(int pinA, int pinB,int pinForward, int pinBackward):
         pinForward(pinForward), pinBackward(pinBackward),
-        rpmPID(&pidInput, &pidOutput, &targetRPM, Kp, Ki, Kd, QuickPID::Action::direct),
+        rpmPID(&pidInput, &pidOutput, &outputRPM, Kp, Ki, Kd, QuickPID::Action::direct),
         rpmFilter(25, 10, 3, 0)
 {
 
@@ -69,19 +69,18 @@ void Motor::readEncoder() {
 }
 
 void Motor::calculateRPM() {
-    static unsigned long lastUpdateTime = 0;
-    unsigned long currentTime = millis();
-    unsigned long elapsedTime = currentTime - lastUpdateTime;
+//    lastUpdateTime = 0;
+//    unsigned long currentTime = millis();
+//    unsigned long elapsedTime = currentTime - lastUpdateTime;
 
-    if (elapsedTime >= 10) { // Calculate RPM every second
+    // Calculate RPM every second
         noInterrupts();
         long ticks = totalEncoderTicks;
         totalEncoderTicks = 0;
         interrupts();
-        currentRPM = rpmFilter.update(((float)ticks / (float)pulsesPerRevolution) * 60.0 / (elapsedTime / 1000.0));
-        lastUpdateTime = currentTime;
+        currentRPM = rpmFilter.update((float)ticks * 60.0/5);
+//        lastUpdateTime = currentTime;
 
-    }
 }
 void Motor::update() {
     Serial.print((String)currentRPM+"\t");
@@ -90,17 +89,19 @@ void Motor::update() {
 
 void Motor::followLine(float lineError, float baseSpeed) {
     setTargetRPM(baseSpeed);
-    if(abs(currentRPM)<600){
-        pidInput = currentRPM;
-    }
+//    if(abs(currentRPM)<600){
+        pidInput = -currentRPM;
+//    }
     float lineAdjustment = lineError; // Define this function based on lineError
     rpmPID.Compute();
-    targetRPM=pidOutput+lineAdjustment;
+
+//    targetRPM=pidOutput+lineAdjustment;
+    outputRPM=pidOutput+lineAdjustment;
     if(this==instances[0]){
-        Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)targetRPM+"\t"+(String)currentRPM+"\t\t\t");
+        Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
     }
     if(this==instances[1]){
-        Serial.println("L:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)targetRPM+"\t"+(String)currentRPM);
+        Serial.println("L:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM);
     }
     rpmPID.Compute(); // Adjust the PID controller to regulate speed instead of position
 

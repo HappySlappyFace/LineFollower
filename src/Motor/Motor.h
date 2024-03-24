@@ -36,6 +36,8 @@ public:
     void setTargetRPM(float target);
     void calculateRPM();
 
+    void readEncoder();
+
 private:
     int encoderPinA, encoderPinB, pinForward, pinBackward;
     int pulsesPerRevolution=204;
@@ -44,9 +46,9 @@ private:
     volatile bool lastEncoderBState;
     bool direction;
 
-    void readEncoder();
     // PID Control variables
     float targetRPM{}; // Target RPM set by the user
+    float outputRPM;
     float outputSignal{}; // Output signal to control the motor (e.g., PWM value)
     QuickPID rpmPID; // PID controller object
     float positionError; // This should be updated in your readEncoder or a dedicated method
@@ -59,16 +61,9 @@ private:
     float Kd=0;
     float wheelDiameterCm=6.5;
     float wheelCircumferenceCm=wheelDiameterCm*PI;
-
     void applyControlOutput(float pidOut) const;
-
-
     float targetSpeed;
-
     float calculateLineAdjustment(float lineError);
-
-
-
     long encoderTicks;
     float speedError;
     Kalman rpmFilter;

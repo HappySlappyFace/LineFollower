@@ -4,8 +4,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <QTRSensors.h>
-////#include "esp_wifi.h"
-////#include <WiFi.h>
 Motor* leftMotor;
 Motor* rightMotor;
 //
@@ -23,10 +21,10 @@ IRSensorArray irSensorArray(sensorValues, sensorWeights, SensorCount);
 //#include <esp32-hal-adc.h>
 
 //
-#define rightMotorBack 19
-#define rightMotorFront 21
-#define leftMotorFront 13
-#define leftMotorBack 4
+#define leftMotorBack 19
+#define leftMotorFront 21
+#define rightMotorFront 13
+#define rightMotorBack 4
 TaskHandle_t partie1;
 
 void updateMotorTask(void *pvParameters) {
@@ -116,26 +114,35 @@ void readIRTask(void *pvParameters){
 }
 void readRPMTask(void *pvParameters){
     for(;;){
-        rightMotor->calculateRPM();
         leftMotor->calculateRPM();
-        leftMotor->update();
-        rightMotor->update();
-        Serial.println();
-        vTaskDelay(pdMS_TO_TICKS(5));
+
+        rightMotor->calculateRPM();
+//        leftMotor->update();
+//        rightMotor->update();
+//        Serial.println();
+        vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
-
+void rightIncrementEncoderTicks() {
+    rightMotor->readEncoder();
+}
+void leftIncrementEncoderTicks() {
+    leftMotor->readEncoder();
+}
+int debug=0;
 void setup() {
     qtr.setTypeAnalog();
     qtr.setSensorPins((const uint8_t[]){12,14,27,26,25,33,32,35,34}, SensorCount);
     pinMode(2, OUTPUT);
     pinMode(0, OUTPUT);
     digitalWrite(2, HIGH);
-    for (uint16_t i = 0; i < 69; i++)
-    {
-        analogWrite(leftMotorBack,105);
-        analogWrite(rightMotorFront,105);
-        qtr.calibrate();
+    if (!debug){
+        for (uint16_t i = 0; i < 69; i++)
+        {
+            analogWrite(leftMotorBack,105);
+            analogWrite(rightMotorFront,105);
+            qtr.calibrate();
+        }
     }
     digitalWrite(leftMotorBack,LOW);
     digitalWrite(rightMotorFront,LOW);
@@ -155,26 +162,21 @@ void setup() {
     digitalWrite(leftMotorBack,LOW);
     digitalWrite(rightMotorBack,LOW);
     digitalWrite(rightMotorFront,LOW);
-    leftMotor = new Motor (23,22,leftMotorFront,leftMotorBack);
-    rightMotor = new Motor (17,16,rightMotorFront,rightMotorBack);
+    leftMotor = new Motor (16,17,leftMotorFront,leftMotorBack);
+    rightMotor = new Motor (22,23,rightMotorFront,rightMotorBack);
     for(int pin : pins){
-//        digitalWrite(pin,LOW);
         pinMode(pin,INPUT);
     }
-//    analogReadResolution(12);
-//    analogSetWidth(12);
-//    analogSetClockDiv(1);
-//    analogSetAttenuation(ADC_11db);
-//    analogSetPinAttenuation(14, ADC_2_5db);
-    leftMotor->SetPid(.7,0,0); //set k to 0.9
-    rightMotor->SetPid(.7,0,0);
+    leftMotor->SetPid(0.5,1.75,0); //set k to 0.9
+    rightMotor->SetPid(0.5,1.75,0);
 
 
-    attachInterrupt(digitalPinToInterrupt(22), [](){ Motor::instances[0]->incrementEncoderTicks(); }, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(17), [](){ Motor::instances[1]->incrementEncoderTicks(); }, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(22), rightIncrementEncoderTicks, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(17), leftIncrementEncoderTicks, CHANGE);
 //    xTaskCreate(updateMotorTask, "Update Motor", 4096, NULL, 3, NULL);
-//    xTaskCreate(lineFollowerTask, "Partie1", 4096, NULL, 4, NULL);
-
+    xTaskCreate(lineFollowerTask, "Partie1", 4096, NULL, 4, NULL);
+//    analogWrite(leftMotorBack,255);
+//    analogWrite(rightMotorFront,255);
     xTaskCreate(readRPMTask, "RPMReading", 2048, NULL, 2, NULL);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
