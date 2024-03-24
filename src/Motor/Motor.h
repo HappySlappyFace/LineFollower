@@ -16,25 +16,27 @@ public:
     void startPID();
     void SetPid(float Kp, float Ki, float Kd);
     float calculateDistanceTraveled() const;
-    void setTargetPosition(long positionTicks);
+    void setTargetPosition(float positionTicks);
     long getTotalEncoderTicks() const;
     int distanceInCmToTicks(float distanceInCm) const;
-    void followLine(int lineError);
+    void followLine(float lineError, float baseSpeed);
     static void printInstances();
     static const int MAX_MOTORS = 2;
     static Motor* instances[MAX_MOTORS];
 
-    volatile bool debugFlag = false;
-    volatile long debugEncoderTicks = 0;
-    volatile long debugTotalEncoderTicks = 0;
+//    volatile bool debugFlag = false;
+//    volatile long debugEncoderTicks = 0;
+//    volatile long debugTotalEncoderTicks = 0;
 
     float pidInput;  // This will be your positionError
     float pidOutput=0; // This will be the control output from PID to your motor
     float pidSetpoint; // This is your target position
-    bool debugCurrentA;
-    bool debugCurrentB;
+//    bool debugCurrentA;
+//    bool debugCurrentB;
+    void setTargetRPM(float targetRPM);
+
 private:
-    int encoderPinA, encoderPinB,pinForward,pinBackward;
+    int encoderPinA, encoderPinB, pinForward, pinBackward;
     int pulsesPerRevolution=204;
     volatile long totalEncoderTicks=0;
     volatile bool lastEncoderAState;
@@ -60,7 +62,13 @@ private:
     void applyControlOutput(float pidOut) const;
 
 
+    float targetSpeed;
 
+    float calculateLineAdjustment(float lineError);
+
+    void calculateRPM();
+
+    long encoderTicks;
 };
 
 #endif //UNTITLED_MOTOR_H
