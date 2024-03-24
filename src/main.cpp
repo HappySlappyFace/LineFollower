@@ -6,11 +6,10 @@
 #include <QTRSensors.h>
 Motor* leftMotor;
 Motor* rightMotor;
-//
-int sensorWeights[] = {-4, -3, -2, -1, 0, 1, 2, 3, 4};
-//int sensorWeights[] = { -3, -2, -1, 0, 1, 2, 3};
-////int sensorWeights[] = {  -2, 0, 2 };
+//Motor Motors;
+int sensorWeights[] = {-1, -2, -4, -3, 0, 4, 3, 2, 1};
 int pins[]={12,14,27,26,25,33,32,35,34};
+unsigned long lastTurnTriggerTimer=0;
 QTRSensors qtr;
 const uint8_t SensorCount = sizeof(pins) / sizeof(pins[0]);
 uint16_t sensorValues[SensorCount];
@@ -27,7 +26,7 @@ IRSensorArray irSensorArray(sensorValues, sensorWeights, SensorCount);
 #define rightMotorBack 4
 TaskHandle_t partie1;
 
-void updateMotorTask(void *pvParameters) {
+[[noreturn]] void updateMotorTask(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(3);
     for (;;) {
@@ -40,79 +39,55 @@ void updateMotorTask(void *pvParameters) {
     }
 }
 
-void partie1Task(void *pvParameters) {
-    for(;;){
-        int distanceToTravel=leftMotor->distanceInCmToTicks(50);
-//        int distanceToTravel=-250;
-        rightMotor->setTargetPosition(distanceToTravel);
-        leftMotor->setTargetPosition(distanceToTravel);
-        vTaskDelay(pdMS_TO_TICKS(10)); // Run every 1ms
-    }
-//    leftMotor->setTargetRPM(0);
-//    vTaskDelete(partie1);
-}
 
-void lineFollowerTask(void *pvParameters) {
+[[noreturn]] void lineFollowerTask(void *pvParameters) {
     const int baseSpeed = 100; // This should be adjusted based on your robot's design
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(2); // Adjust frequency as needed
-    while (true) {
-//        float lineError = irSensorArray.calculateError();
+    const TickType_t xFrequency = pdMS_TO_TICKS(2);
+    for(;;) {
+
         uint16_t position = qtr.readLineBlack(sensorValues);
-        float lineError=map(position,0,8000,-baseSpeed,baseSpeed);
-        // Call followLine for each motor with the calculated line error
-        rightMotor->followLine(-lineError, baseSpeed); // Assuming rightMotor needs to slow down when error is positive
+        long lineError=map(position,0,8000,-baseSpeed*0.85,baseSpeed*0.85);
+//        if(sensorValues[8]>400 &&sensorValues[7]>400){
+//            long currentTime=millis();
+////            if(currentTime-lastTurnTriggerTimer>1000){
+//                while((millis()-currentTime<40)){
+//                    digitalWrite(2,HIGH);
+//                    Motor::applyMotorsOutput(-baseSpeed,baseSpeed);
+//                }
+////            }
+//            lastTurnTriggerTimer=millis();
+//            Motor::applyMotorsOutput(0,0);
+//            Motor::resetMotorsPID();
+//            digitalWrite(2,LOW);
+//
+//        }
+        rightMotor->followLine(lineError, -baseSpeed); // Assuming rightMotor needs to slow down when error is positive
         leftMotor->followLine(lineError, baseSpeed); // Assuming leftMotor needs to slow down when error is negative
-//        Serial.println();
+
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
-//void readEncodersTask(void *pvParameters) {
-//    for(;;){
-//        Serial.print((String)leftMotor->getTotalEncoderTicks()+"\t"+ (String)leftMotor->calculateDistanceTraveled()+"\t"+(String)leftMotor->pidOutput+"\t");
-//        Serial.println((String)rightMotor->getTotalEncoderTicks()+"\t"+ (String)rightMotor->calculateDistanceTraveled()+"\t"+(String)rightMotor->pidOutput);
-//        vTaskDelay(pdMS_TO_TICKS(10)); // Run every 1ms
-//    }
-//}
-//void debugTask(void *pvParameters) {
-//    for(;;) {
-//        if (leftMotor->debugFlag) {
-//            leftMotor->debugFlag = false; // Reset flag
-//            Serial.print("A: ");
-//            Serial.print(leftMotor->debugEncoderTicks);
-//            Serial.print("\tB: ");
-//            Serial.print(leftMotor->debugTotalEncoderTicks);
-//            Serial.println();
-//        }
-//        if (rightMotor->debugFlag) {
-//            rightMotor->debugFlag = false; // Reset flag
-//            Serial.print("A: ");
-//            Serial.print(rightMotor->debugEncoderTicks);
-//            Serial.print("\tB: ");
-//            Serial.print(rightMotor->debugTotalEncoderTicks);
-//            Serial.println();
-//        }
-//        vTaskDelay(pdMS_TO_TICKS(100)); // Run this task at a safe, low frequency
-//    }
-//}
+
 
 void startupTask(void *pvParameters){
     vTaskDelay(pdMS_TO_TICKS(200));
 }
 
-void readIRTask(void *pvParameters){
+[[noreturn]] void readIRTask(void *pvParameters){
     for(;;){
         uint16_t position = qtr.readLineBlack(sensorValues);
-        for (uint8_t i = 0; i < SensorCount; i++)
+        for (unsigned short sensorValue : sensorValues)
         {
-            Serial.print(sensorValues[i]);
+            Serial.print(sensorValue);
             Serial.print('\t');
         }
         Serial.println(position);
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
-void readRPMTask(void *pvParameters){
+
+[[noreturn]] void readRPMTask(void *pvParameters){
     for(;;){
         leftMotor->calculateRPM();
 
@@ -129,6 +104,7 @@ void rightIncrementEncoderTicks() {
 void leftIncrementEncoderTicks() {
     leftMotor->readEncoder();
 }
+
 int debug=0;
 void setup() {
     qtr.setTypeAnalog();
@@ -167,17 +143,15 @@ void setup() {
     for(int pin : pins){
         pinMode(pin,INPUT);
     }
-    leftMotor->SetPid(0.5,1.75,0); //set k to 0.9
-    rightMotor->SetPid(0.5,1.75,0);
+    leftMotor->SetPid(5,5,0); //set k to 0.9
+    rightMotor->SetPid(5,5,0);
 
 
     attachInterrupt(digitalPinToInterrupt(22), rightIncrementEncoderTicks, CHANGE);
     attachInterrupt(digitalPinToInterrupt(17), leftIncrementEncoderTicks, CHANGE);
-//    xTaskCreate(updateMotorTask, "Update Motor", 4096, NULL, 3, NULL);
-    xTaskCreate(lineFollowerTask, "Partie1", 4096, NULL, 4, NULL);
-//    analogWrite(leftMotorBack,255);
-//    analogWrite(rightMotorFront,255);
-    xTaskCreate(readRPMTask, "RPMReading", 2048, NULL, 2, NULL);
+//    xTaskCreate(updateMotorTask, "Update Motor", 4096
+    xTaskCreate(lineFollowerTask, "LineFollowerTask", 4096, nullptr, 4, nullptr);
+    xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 }

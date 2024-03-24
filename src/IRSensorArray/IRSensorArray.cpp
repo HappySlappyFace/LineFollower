@@ -37,4 +37,19 @@ float IRSensorArray::calculateError() {
     return error; //this should be error but i edited it
 }
 
-
+bool IRSensorArray::isAllWhite(){
+    for(int i=0;i<numSensors;i++){
+        if(lineValues[i]>250){
+            return false;
+        }
+    }
+    return true;
+}
+bool IRSensorArray::isAllBlack(){
+    for(int i=0;i<numSensors;i++){
+        if(lineValues[i]<250){
+            return false;
+        }
+    }
+    return true;
+}

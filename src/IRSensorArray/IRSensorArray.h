@@ -9,6 +9,9 @@ class IRSensorArray {
 public:
     IRSensorArray(const uint16_t *values, const int* weights, int numSensors);
     float calculateError();
+    bool isAllWhite();
+    bool isAllBlack();
+
 
 private:
     const int* sensorWeights;

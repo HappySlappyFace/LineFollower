@@ -14,18 +14,16 @@ Motor::Motor(int pinA, int pinB,int pinForward, int pinBackward):
         rpmPID(&pidInput, &pidOutput, &outputRPM, Kp, Ki, Kd, QuickPID::Action::direct),
         rpmFilter(25, 10, 3, 0)
 {
-
     encoderPinA = pinA;
     encoderPinB = pinB;
     pinMode(encoderPinA, INPUT_PULLUP);
     pinMode(encoderPinB, INPUT_PULLUP);
     pinMode(pinForward, OUTPUT);
     pinMode(pinBackward, OUTPUT);
-    lastUpdateTime = millis();
     bool instanceAdded = false;
-    for (int i = 0; i < MAX_MOTORS; ++i) {
-        if (instances[i] == nullptr) {
-            instances[i] = this;
+    for (auto & instance : instances) {
+        if (instance == nullptr) {
+            instance = this;
             instanceAdded = true;
             break;
         }
@@ -36,16 +34,8 @@ Motor::Motor(int pinA, int pinB,int pinForward, int pinBackward):
     startPID(); // Start the PID controller
 }
 
-void Motor::incrementEncoderTicks() {
-    readEncoder();
+Motor::Motor() : rpmFilter(rpmFilter) {}
 
-    if(this==instances[0]){
-        digitalWrite(2, !digitalRead(2));
-    }
-    if(this==instances[1]){
-        digitalWrite(0, !digitalRead(0));
-    }
-}
 void Motor::readEncoder() {
 
     bool currentA = digitalRead(encoderPinA);
@@ -69,46 +59,51 @@ void Motor::readEncoder() {
 }
 
 void Motor::calculateRPM() {
-//    lastUpdateTime = 0;
-//    unsigned long currentTime = millis();
-//    unsigned long elapsedTime = currentTime - lastUpdateTime;
-
-    // Calculate RPM every second
         noInterrupts();
         long ticks = totalEncoderTicks;
         totalEncoderTicks = 0;
         interrupts();
         currentRPM = rpmFilter.update((float)ticks * 60.0/5);
-//        lastUpdateTime = currentTime;
-
 }
-void Motor::update() {
-    Serial.print((String)currentRPM+"\t");
-//        applyControlOutput(pidOutput);
+void Motor::printCurrentRPM() {
+    Serial.println((String)instances[0]->currentRPM+"\t"+(String)instances[1]->currentRPM);
 }
 
+void Motor::resetMotorsPID(){
+    instances[0]->resetPID();
+    instances[1]->resetPID();
+}
+void Motor::resetPID(){
+    pidOutput=0;
+    pidInput=0;
+    totalEncoderTicks=0;
+    encoderTicks=0;
+}
 void Motor::followLine(float lineError, float baseSpeed) {
     setTargetRPM(baseSpeed);
-//    if(abs(currentRPM)<600){
-        pidInput = -currentRPM;
-//    }
-    float lineAdjustment = lineError; // Define this function based on lineError
+    pidInput = -currentRPM;
     rpmPID.Compute();
 
-//    targetRPM=pidOutput+lineAdjustment;
-    outputRPM=pidOutput+lineAdjustment;
+
+    outputRPM=targetRPM-lineError;
     if(this==instances[0]){
         Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
+        applyControlOutput(outputRPM);
     }
     if(this==instances[1]){
         Serial.println("L:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM);
+        applyControlOutput(-outputRPM);
     }
-    rpmPID.Compute(); // Adjust the PID controller to regulate speed instead of position
+
 
     // Apply the control output to adjust motor speed
-    applyControlOutput(pidOutput);
-}
 
+//    applyControlOutput(baseSpeed+lineAdjustment);
+}
+void Motor::applyMotorsOutput(float left,float right){
+    instances[0]->applyControlOutput(left);
+    instances[1]->applyControlOutput(right);
+}
 void Motor::applyControlOutput(float pidOut) const {
     // Assuming pidOut ranges from -255 to 255
     // Forward direction
@@ -127,20 +122,10 @@ void Motor::applyControlOutput(float pidOut) const {
         digitalWrite(pinBackward, LOW);
     }
 }
-float Motor::calculateDistanceTraveled() const {
-    const int ticksPerRevolution = pulsesPerRevolution/* number of encoder ticks per wheel revolution */;
-    return ((float)totalEncoderTicks / (float)ticksPerRevolution) * wheelCircumferenceCm;
-}
-int Motor::distanceInCmToTicks(float distanceInCm) const{
-    // Calculate the wheel's circumference based on its diameter
-    return (int)((distanceInCm / wheelCircumferenceCm) * (float)pulsesPerRevolution);
-}
 void Motor::SetPid(float Kp, float Ki, float Kd){
     rpmPID.SetTunings(Kp,Ki,Kd);
 }
-void Motor::setTargetPosition(float positionTicks) {
-    targetPosition = positionTicks;
-}
+
 void Motor::startPID() {
     rpmPID.SetMode(QuickPID::Control::automatic);
     rpmPID.SetSampleTimeUs(50000);
@@ -168,3 +153,5 @@ float Motor::calculateLineAdjustment(float lineError) {
 void Motor::setTargetRPM(float target) {
     targetRPM=target;
 }
+
+
