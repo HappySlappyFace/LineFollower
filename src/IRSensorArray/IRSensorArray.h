@@ -11,13 +11,14 @@ public:
     float calculateError();
     bool isAllWhite();
     bool isAllBlack();
-
+    bool isRightTurn();
+    bool isLeftTurn();
 
 private:
     const int* sensorWeights;
     int numSensors;
     const uint16_t *lineValues;
-//    int values{};
+
 };
 
 #endif //UNTITLED_IRSENSORARRAY_H

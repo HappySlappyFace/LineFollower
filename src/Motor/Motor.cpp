@@ -78,6 +78,8 @@ void Motor::resetPID(){
     pidInput=0;
     totalEncoderTicks=0;
     encoderTicks=0;
+    outputRPM=0;
+    rpmPID.Compute();
 }
 void Motor::followLine(float lineError, float baseSpeed) {
     setTargetRPM(baseSpeed);
