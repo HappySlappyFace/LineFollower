@@ -8,8 +8,10 @@ Motor* leftMotor;
 Motor* rightMotor;
 //Motor Motors;
 int sensorWeights[] = {-1, -2, -4, -3, 0, 4, 3, 2, 1};
-int pins[]={12,14,27,26,25,33,32,35,34};
+//int pins[]={12,14,27,26,25,33,32,35,34};
+uint16_t pins[]={34,35,32,33,25,26,27,14,12};
 unsigned long lastTurnTriggerTimer=0;
+bool stopped=true;
 QTRSensors qtr;
 const uint8_t SensorCount = sizeof(pins) / sizeof(pins[0]);
 uint16_t sensorValues[SensorCount];
@@ -41,7 +43,7 @@ TaskHandle_t partie1;
 
 
 [[noreturn]] void lineFollowerTask(void *pvParameters) {
-    const int baseSpeed = 100; // This should be adjusted based on your robot's design
+    const int baseSpeed = 90; // This should be adjusted based on your robot's design
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(2);
     for(;;) {
@@ -90,14 +92,30 @@ void startupTask(void *pvParameters){
 [[noreturn]] void readRPMTask(void *pvParameters){
     for(;;){
         leftMotor->calculateRPM();
-
         rightMotor->calculateRPM();
-//        leftMotor->update();
-//        rightMotor->update();
-//        Serial.println();
         vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
+[[noreturn]] void stopTask(void *pvParameters){
+    for(;;){
+        if(stopped)
+        {
+            if(irSensorArray.isAllBlack()){
+                Motor::applyMotorsOutput(0,0);
+                stopped=false;
+                Motor::resetMotorsPID();
+//                vTaskDelete(partie1);
+                digitalWrite(2,HIGH);
+                digitalWrite(rightMotorBack,0);
+                digitalWrite(rightMotorFront,0);
+                digitalWrite(leftMotorBack,0);
+                digitalWrite(leftMotorFront,0);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
 void rightIncrementEncoderTicks() {
     rightMotor->readEncoder();
 }
@@ -111,6 +129,10 @@ void setup() {
     qtr.setSensorPins((const uint8_t[]){12,14,27,26,25,33,32,35,34}, SensorCount);
     pinMode(2, OUTPUT);
     pinMode(0, OUTPUT);
+    Serial.begin(9600);
+
+
+    //IR calibration
     digitalWrite(2, HIGH);
     if (!debug){
         for (uint16_t i = 0; i < 69; i++)
@@ -123,9 +145,9 @@ void setup() {
     digitalWrite(leftMotorBack,LOW);
     digitalWrite(rightMotorFront,LOW);
     digitalWrite(2, LOW);
-//    xTaskCreate(startupTask, "Delay everything for 200ms", 2048, NULL, 9, NULL);
-    Serial.begin(9600);
-//    esp_err_t results = esp_wifi_stop();
+
+
+    //Initialization for motors and encoders
     pinMode(22,INPUT);
     pinMode(23,INPUT);
     pinMode(16,INPUT);
@@ -140,19 +162,22 @@ void setup() {
     digitalWrite(rightMotorFront,LOW);
     leftMotor = new Motor (16,17,leftMotorFront,leftMotorBack);
     rightMotor = new Motor (22,23,rightMotorFront,rightMotorBack);
+    //    xTaskCreate(startupTask, "Delay everything for 200ms", 2048, NULL, 9, NULL);
     for(int pin : pins){
         pinMode(pin,INPUT);
     }
-    leftMotor->SetPid(5,5,0); //set k to 0.9
-    rightMotor->SetPid(5,5,0);
-
-
+    leftMotor->SetPid(4,15,0); //set k to 0.9
+    rightMotor->SetPid(4,15,0);
     attachInterrupt(digitalPinToInterrupt(22), rightIncrementEncoderTicks, CHANGE);
     attachInterrupt(digitalPinToInterrupt(17), leftIncrementEncoderTicks, CHANGE);
+
+
+    //FreeRTOS tasks
 //    xTaskCreate(updateMotorTask, "Update Motor", 4096
-    xTaskCreate(lineFollowerTask, "LineFollowerTask", 4096, nullptr, 4, nullptr);
+    xTaskCreate(lineFollowerTask, "LineFollowerTask", 4096, NULL, 4, &partie1);
     xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
-//    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
+//    xTaskCreate(stopTask, "Stop", 2048, nullptr, 2, nullptr);
+    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 }
 
