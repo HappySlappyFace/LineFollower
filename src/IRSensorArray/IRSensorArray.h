@@ -18,6 +18,8 @@ private:
     const int* sensorWeights;
     int numSensors;
     const uint16_t *lineValues;
+    int targetWhiteValue=250;
+    int targetBlackValue=300;
 
 };
 

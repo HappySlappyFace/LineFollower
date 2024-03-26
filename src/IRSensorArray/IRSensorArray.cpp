@@ -39,7 +39,7 @@ float IRSensorArray::calculateError() {
 
 bool IRSensorArray::isAllWhite(){
     for(int i=0;i<numSensors;i++){
-        if(lineValues[i]>200){
+        if(lineValues[i]>targetWhiteValue){
             return false;
         }
     }
@@ -47,25 +47,21 @@ bool IRSensorArray::isAllWhite(){
 }
 bool IRSensorArray::isAllBlack(){
     for(int i=0;i<numSensors;i++){
-        if(lineValues[i]<250){
+        if(lineValues[i]<targetBlackValue){
             return false;
         }
     }
     return true;
 }
 bool IRSensorArray::isRightTurn(){
-    for(int i=0;i<numSensors;i++){
-        if(lineValues[i]<250){
-            return false;
-        }
+    if(lineValues[8]>targetBlackValue &&lineValues[7]>targetBlackValue){
+        return true;
     }
-    return true;
+    return false;
 }
 bool IRSensorArray::isLeftTurn(){
-    for(int i=0;i<numSensors;i++){
-        if(lineValues[i]<250){
-            return false;
-        }
+    if(lineValues[0]>targetBlackValue &&lineValues[1]>targetBlackValue){
+        return true;
     }
-    return true;
+    return false;
 }
