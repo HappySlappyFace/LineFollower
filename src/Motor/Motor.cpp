@@ -87,7 +87,7 @@ void Motor::followLine(float lineError, float baseSpeed) {
     rpmPID.Compute();
 
 
-    outputRPM=targetRPM-lineError;
+    outputRPM=targetRPM+lineError;
     if(this==instances[0]){
         Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
         applyControlOutput(outputRPM);

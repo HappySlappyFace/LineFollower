@@ -9,7 +9,7 @@ Motor* rightMotor;
 //Motor Motors;
 int sensorWeights[] = {-1, -2, -4, -3, 0, 4, 3, 2, 1};
 //int pins[]={12,14,27,26,25,33,32,35,34};
-uint16_t pins[]={34,35,32,33,25,26,27,14,12};
+uint8_t pins[]={34,35,32,33,25,26,27,14,12};
 unsigned long lastTurnTriggerTimer=0;
 bool stopped=true;
 QTRSensors qtr;
@@ -126,7 +126,7 @@ void leftIncrementEncoderTicks() {
 int debug=0;
 void setup() {
     qtr.setTypeAnalog();
-    qtr.setSensorPins((const uint8_t[]){12,14,27,26,25,33,32,35,34}, SensorCount);
+    qtr.setSensorPins(pins, SensorCount);
     pinMode(2, OUTPUT);
     pinMode(0, OUTPUT);
     Serial.begin(9600);
@@ -175,9 +175,9 @@ void setup() {
     //FreeRTOS tasks
 //    xTaskCreate(updateMotorTask, "Update Motor", 4096
     xTaskCreate(lineFollowerTask, "LineFollowerTask", 4096, NULL, 4, &partie1);
-    xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
+//    xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
 //    xTaskCreate(stopTask, "Stop", 2048, nullptr, 2, nullptr);
-    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
+//    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 }
 
