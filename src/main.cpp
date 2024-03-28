@@ -7,11 +7,12 @@
 Motor* leftMotor;
 Motor* rightMotor;
 //Motor Motors;
-int sensorWeights[] = {-1, -2, -4, -3, 0, 4, 3, 2, 1};
+int sensorWeights[] = {-1, -2, -4, -3, 0, 3, 4, 2, 1};
 //int pins[]={12,14,27,26,25,33,32,35,34};
 uint8_t pins[]={34,35,32,33,25,26,27,14,12};
 unsigned long lastTurnTriggerTimer=0;
 bool stopped=false;
+bool isTurning=false;
 QTRSensors qtr;
 const uint8_t SensorCount = sizeof(pins) / sizeof(pins[0]);
 uint16_t sensorValues[SensorCount];
@@ -44,9 +45,9 @@ TaskHandle_t partie1;
 int smoothIsLeftTurn=0;
 
 [[noreturn]] void lineFollowerTask(void *pvParameters) {
-    const int baseSpeed = 150; // This should be adjusted based on your robot's design
+    const int baseSpeed = 120; // This should be adjusted based on your robot's design
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(4);
+    const TickType_t xFrequency = pdMS_TO_TICKS(3);
     for(;;) {
 
         uint16_t position = qtr.readLineBlack(sensorValues);
@@ -57,21 +58,26 @@ int smoothIsLeftTurn=0;
         else{
             smoothIsLeftTurn=0;
         }
-        if(smoothIsLeftTurn>3) {
-            long currentTime=millis();
-//            if(currentTime-lastTurnTriggerTimer>1000){
-                while((millis()-currentTime<40)){
-                    digitalWrite(2, HIGH);
-                    Motor::applyMotorsOutput(-baseSpeed*0.2,baseSpeed*0.2);
-                    Motor::resetMotorsPID();
-//                }
-//                lastTurnTriggerTimer=currentTime;
+        if(smoothIsLeftTurn>999 || isTurning) {
+            isTurning=true;
+            digitalWrite(2, HIGH);
+            if(abs(lineError)>10){
+//                leftMotor->followLine(0, -80);
+//                rightMotor->followLine(0, 80);
+                Motor::enforceMotorsSetpoint(-60,60);
+//                Motor::resetMotorsPID();
             }
-//            Motor::applyMotorsOutput(0,0);
-        }else{    digitalWrite(2,LOW);}
+            else{
+                Motor::resetMotorsPID();
+                digitalWrite(2, LOW);
+                isTurning=false;
+            }
+        }else{
+            digitalWrite(2,LOW);
+            leftMotor->followLine(lineError, baseSpeed);
+            rightMotor->followLine(lineError, -baseSpeed);
+        }
 
-        rightMotor->followLine(lineError, -baseSpeed); // Assuming rightMotor needs to slow down when error is positive
-        leftMotor->followLine(lineError, baseSpeed); // Assuming leftMotor needs to slow down when error is negative
 
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
@@ -98,7 +104,7 @@ void startupTask(void *pvParameters){
     for(;;){
         leftMotor->calculateRPM();
         rightMotor->calculateRPM();
-        vTaskDelay(pdMS_TO_TICKS(25));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 [[noreturn]] void stopTask(void *pvParameters){
@@ -178,18 +184,18 @@ void setup() {
     for(int pin : pins){
         pinMode(pin,INPUT);
     }
-    leftMotor->SetPid(2,5,0); //set k to 0.9
-    rightMotor->SetPid(2,5,0);
+    leftMotor->SetPid(5,30,0); //set k to 0.9
+    rightMotor->SetPid(5,30,0);
     attachInterrupt(digitalPinToInterrupt(22), rightIncrementEncoderTicks, CHANGE);
     attachInterrupt(digitalPinToInterrupt(17), leftIncrementEncoderTicks, CHANGE);
 
 
     //FreeRTOS tasks
     xTaskCreate(lineFollowerTask, "LineFollowerTask", 4096, NULL, 4, &partie1);
-//    xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
+    xTaskCreate(readRPMTask, "RPMReading", 2048, nullptr, 2, nullptr);
 //    xTaskCreate(stopTask, "Stop", 2048, nullptr, 2, nullptr);
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
-    xTaskCreate(randomFunctionalityTesting, "Functionality Testing", 2048, nullptr, 2, nullptr);
+//    xTaskCreate(randomFunctionalityTesting, "Functionality Testing", 2048, nullptr, 2, nullptr);
 
     stopped=true;
 

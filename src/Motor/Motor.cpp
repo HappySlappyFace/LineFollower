@@ -73,6 +73,15 @@ void Motor::resetMotorsPID(){
     instances[0]->resetPID();
     instances[1]->resetPID();
 }
+void Motor::enforceSetpoint(float Set){
+    outputRPM=Set;
+}
+void Motor::enforceMotorsSetpoint(float leftSet, float rightSet){
+    instances[0]->enforceSetpoint(leftSet);
+    instances[1]->enforceSetpoint(rightSet);
+    instances[0]->applyControlOutput(instances[0]->outputRPM);
+    instances[1]->applyControlOutput(instances[1]->outputRPM);
+}
 void Motor::resetPID(){
     pidOutput=0;
     pidInput=0;
@@ -89,11 +98,11 @@ void Motor::followLine(float lineError, float baseSpeed) {
 
     outputRPM=targetRPM+lineError;
     if(this==instances[0]){
-//        Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
+        Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
         applyControlOutput(outputRPM);
     }
     if(this==instances[1]){
-//        Serial.println("L:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM);
+        Serial.println("L:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM);
         applyControlOutput(-outputRPM);
     }
 

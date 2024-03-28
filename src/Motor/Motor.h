@@ -29,6 +29,8 @@ public:
     void readEncoder();
     static void applyMotorsOutput(float left,float right);
     static void resetMotorsPID();
+    static void enforceMotorsSetpoint(float leftSet, float rightSet);
+
 
 
 
@@ -60,6 +62,8 @@ private:
     float speedError;
     Kalman rpmFilter;
 
+
+    void enforceSetpoint(float Set);
 
 };
 
