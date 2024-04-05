@@ -29,6 +29,27 @@ IRSensorArray irSensorArray(sensorValues, sensorWeights, SensorCount);
 #define rightMotorBack 4
 TaskHandle_t partie1;
 
+[[noreturn]] void stopTask(void *pvParameters){
+    for(;;){
+//        Motor::applyMotorsOutput(0,0);
+//        stopped=false;
+        Motor::resetMotorsPID();
+
+        digitalWrite(2,HIGH);
+//        Motor::enforceMotorsSetpoint(0,0);
+//
+//        Serial.println("Stopped: "+(String)leftMotor->pidOutput+"\t"+(String)rightMotor->pidOutput);
+//        analogWrite()
+        leftMotor->followLine(0, 10);
+        rightMotor->followLine(0, 10);
+//        analogWrite(rightMotorBack,1);
+//        analogWrite(rightMotorFront,1);
+//        analogWrite(leftMotorBack,1);
+//        analogWrite(leftMotorFront,1);
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
 [[noreturn]] void updateMotorTask(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(3);
@@ -41,48 +62,62 @@ TaskHandle_t partie1;
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
-
 int smoothIsLeftTurn=0;
+int smoothIsAllBlack=0;
+
 
 [[noreturn]] void lineFollowerTask(void *pvParameters) {
-    const int baseSpeed = 120; // This should be adjusted based on your robot's design
+    const int baseSpeed = 160; // This should be adjusted based on your robot's design
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(3);
+    const TickType_t xFrequency = pdMS_TO_TICKS(4);
     for(;;) {
-
-        uint16_t position = qtr.readLineBlack(sensorValues);
-        long lineError=map(position,0,8000,-baseSpeed*0.85,baseSpeed*0.85);
-        if(irSensorArray.isLeftTurn()){
-            smoothIsLeftTurn++;
+        if(irSensorArray.isAllBlack()){
+            smoothIsAllBlack++;
         }
         else{
-            smoothIsLeftTurn=0;
+            smoothIsAllBlack=0;
         }
-        if(smoothIsLeftTurn>999 || isTurning) {
-            isTurning=true;
-            digitalWrite(2, HIGH);
-            if(abs(lineError)>10){
-//                leftMotor->followLine(0, -80);
-//                rightMotor->followLine(0, 80);
-                Motor::enforceMotorsSetpoint(-60,60);
-//                Motor::resetMotorsPID();
+        if(smoothIsAllBlack>5 || stopped) {
+            stopped=true;
+//            leftMotor->resetMotorsPID();
+//            rightMotor->resetMotorsPID();
+//            Motor::enforceMotorsSetpoint(0,0);
+            xTaskCreate(stopTask, "Stop", 2048, nullptr, 2, nullptr);
+            vTaskDelete(partie1);
+        }
+        else{
+            uint16_t position = qtr.readLineBlack(sensorValues);
+            long lineError=map(position,0,8000,-baseSpeed*0.5,baseSpeed*0.5);
+            if(irSensorArray.isLeftTurn()){
+                smoothIsLeftTurn++;
             }
             else{
-                Motor::resetMotorsPID();
-                digitalWrite(2, LOW);
-                isTurning=false;
+                smoothIsLeftTurn=0;
             }
-        }else{
-            digitalWrite(2,LOW);
-            leftMotor->followLine(lineError, baseSpeed);
-            rightMotor->followLine(lineError, -baseSpeed);
+            if(smoothIsLeftTurn>4 || isTurning) {
+                isTurning=true;
+                digitalWrite(2, HIGH);
+                if(abs(lineError)>10){
+                    Motor::resetMotorsPID();
+                    leftMotor->followLine(0, -90);
+                    rightMotor->followLine(0, 90);
+//                    Motor::enforceMotorsSetpoint(-90,90);
+                }
+                else{
+    //                Motor::resetMotorsPID();
+                    digitalWrite(2, LOW);
+                    isTurning=false;
+                }
+            }else{
+                digitalWrite(2,LOW);
+                leftMotor->followLine(lineError, baseSpeed);
+                rightMotor->followLine(lineError, -baseSpeed);
+            }
         }
-
 
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
-
 
 void startupTask(void *pvParameters){
     vTaskDelay(pdMS_TO_TICKS(200));
@@ -99,31 +134,11 @@ void startupTask(void *pvParameters){
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-
 [[noreturn]] void readRPMTask(void *pvParameters){
     for(;;){
         leftMotor->calculateRPM();
         rightMotor->calculateRPM();
         vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-[[noreturn]] void stopTask(void *pvParameters){
-    for(;;){
-        if(stopped)
-        {
-            if(irSensorArray.isAllBlack()){
-                Motor::applyMotorsOutput(0,0);
-                stopped=false;
-                Motor::resetMotorsPID();
-//                vTaskDelete(partie1);
-                digitalWrite(2,HIGH);
-                digitalWrite(rightMotorBack,0);
-                digitalWrite(rightMotorFront,0);
-                digitalWrite(leftMotorBack,0);
-                digitalWrite(leftMotorFront,0);
-            }
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 [[noreturn]] void randomFunctionalityTesting(void *pvParameters){
@@ -184,8 +199,8 @@ void setup() {
     for(int pin : pins){
         pinMode(pin,INPUT);
     }
-    leftMotor->SetPid(5,30,0); //set k to 0.9
-    rightMotor->SetPid(5,30,0);
+    leftMotor->SetPid(3,15,0); //set k to 0.9
+    rightMotor->SetPid(3,15,0);
     attachInterrupt(digitalPinToInterrupt(22), rightIncrementEncoderTicks, CHANGE);
     attachInterrupt(digitalPinToInterrupt(17), leftIncrementEncoderTicks, CHANGE);
 
@@ -197,7 +212,6 @@ void setup() {
 //    xTaskCreate(readIRTask, "ReadEncoders", 4096, NULL, 3, NULL);
 //    xTaskCreate(randomFunctionalityTesting, "Functionality Testing", 2048, nullptr, 2, nullptr);
 
-    stopped=true;
 
 }
 

@@ -77,26 +77,36 @@ void Motor::enforceSetpoint(float Set){
     outputRPM=Set;
 }
 void Motor::enforceMotorsSetpoint(float leftSet, float rightSet){
+//    instances[0]->rpmPID.Reset();
+//    instances[1]->rpmPID.Reset();
     instances[0]->enforceSetpoint(leftSet);
     instances[1]->enforceSetpoint(rightSet);
+    instances[0]->rpmPID.Compute();
+    instances[1]->rpmPID.Compute();
+//    instances[0]->outputRPM=leftSet;
+//    instances[1]->outputRPM=rightSet;
     instances[0]->applyControlOutput(instances[0]->outputRPM);
     instances[1]->applyControlOutput(instances[1]->outputRPM);
 }
 void Motor::resetPID(){
-    pidOutput=0;
-    pidInput=0;
-    totalEncoderTicks=0;
-    encoderTicks=0;
-    outputRPM=0;
+    rpmPID.Reset();
+    rpmPID.SetMode(QuickPID::Control::manual);
+    rpmPID.SetOutputLimits(-1, 1); // Allow reverse control
+
+//    pidOutput=0;
+//    pidInput=0;
+//    totalEncoderTicks=0;
+//    encoderTicks=0;
+//    outputRPM=0;
     rpmPID.Compute();
 }
 void Motor::followLine(float lineError, float baseSpeed) {
     setTargetRPM(baseSpeed);
     pidInput = -currentRPM;
+    outputRPM=targetRPM+lineError;
     rpmPID.Compute();
 
 
-    outputRPM=targetRPM+lineError;
     if(this==instances[0]){
         Serial.print("R:\t"+(String)pidInput+"\t"+(String)pidOutput+"\t"+(String)outputRPM+"\t"+(String)currentRPM+"\t\t"+(String)lineError+"\t\t");
         applyControlOutput(outputRPM);
